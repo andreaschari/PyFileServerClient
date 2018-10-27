@@ -1,66 +1,23 @@
 import socket
 import sys
-import os
-
-
-def file_download(filename, sock):
-    '''
-    Sends a file from the server and sends it to the client
-    '''
-    try:
-        if os.path.isfile(filename):
-            sock.send('EXISTS: {}'.format(os.path.getsize(filename)))
-            client_response = sock.recv(1024)
-            if client_response[:2] == 'OK':
-                with open(filename, 'rb') as f:
-                    bytes_to_send = f.read(1024)
-                    sock.send(bytes_to_send)
-                    while bytes_to_send != '':
-                        bytes_to_send = f.read(1024)
-                        sock.send(bytes_to_send)
-        else:
-            sock.send("Error: could not find file.")
-    except sock.error:
-        sock.send('Error: could not download file')
-    sock.close()
-
-
-def file_upload(filename, sock):
-    '''
-    Receives a file from the client and stores it into the server
-    '''
-    try:
-        if os.path.exists(filename):
-            sock.send('Error: cannot overwrite file.')
-        else:
-            sock.send('OK')
-            filesize = sock.recv(1024)
-            bytes_to_recv = sock.recv(1024)
-            file_length = len(bytes_to_recv)
-            with open(filename, 'wb') as f:
-                while file_length < filesize:
-                    f.write(bytes_to_recv)
-                    bytes_to_recv = sock.recv(1024)
-                    file_length += len(bytes_to_recv)
-            sock.send('UPLOADED')
-    except sock.error:
-        sock.send('Error: could not upload file')
-    sock.close()
-
-
-def listdirectory(sock):
-    #  sends current directory contents
-    sock.send(os.listdir())
-    sock.close()
+from functions import *
 
 
 def main():
+    # ip, port and cwd details
+    svr_addr = socket.gethostbyname(socket.gethostname())
+    svr_port = sys.argv[1]
+    svr_path = os.path.dirname(os.path.abspath(__file__))
+
+    print('IPv4 Address {}'.format(svr_addr))
+    print('port number: {}'.format(svr_port))
+    print('server path: {}'.format(svr_path))
 
     try:
         # sys.argv[1] is the port number
         # server will listen for connections on input port
         srv_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        srv_sock.bind(('0.0.0.0', int(sys.argv[1])))
+        srv_sock.bind(('0.0.0.0', int(svr_port)))
         srv_sock.listen(5)
     except Exception as e:
         print(e)
@@ -68,22 +25,29 @@ def main():
 
     while True:
         try:
-            print("Waiting for new client... ")
+            print("Waiting for client... ")
             cli_sock, cli_addr = srv_sock.accept()
             # Translate the client address to a string (to be used shortly)
             cli_addr_str = str(cli_addr)
             print("Client " + cli_addr_str + " connected.")
 
             while True:
-                command = srv_sock.recv(1024)
-                if command[:3].lower() == 'get':
-                    file_download(command[4:], cli_sock)
-                elif command[:3].lower() == 'put':
-                    file_upload(command[4:], cli_sock)
-                elif command[:4].lower() == 'list':
-                    listdirectory()
+                commandline = srv_sock.recv(1024)
+                command = commandline[:4].strip().lower()
+                filepath = commandline[4:].strip()
+
+                if command == 'get':
+                    status = file_download(filepath, cli_sock)
+                elif command == 'put':
+                    status = file_upload(filepath, cli_sock)
+                elif command == 'list':
+                    status = listdirectory(cli_sock)
                 else:
-                    cli_sock.send()
+                    cli_sock.send('Error: Invalid command')
+                    status = False
+                # pass request details to report function
+                request = commandline
+                request_report(cli_addr, svr_port, request, status)
         finally:
             """
              If an error occurs or the client closes the connection,
