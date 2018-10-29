@@ -32,30 +32,32 @@ def main():
             print("Client " + cli_addr_str + " connected.")
 
             while True:
-                commandline = srv_sock.recv(1024)
-                command = commandline[:4].strip().lower()
-                filepath = commandline[4:].strip()
-
-                if command == 'get':
-                    status = file_download(filepath, cli_sock)
-                elif command == 'put':
-                    status = file_upload(filepath, cli_sock)
-                elif command == 'list':
-                    status = listdirectory(cli_sock)
-                else:
-                    cli_sock.send('Error: Invalid command')
-                    status = False
-                # pass request details to report function
-                request = commandline
-                request_report(cli_addr, svr_port, request, status)
-        finally:
+                commandline = cli_sock.recv(1024).decode()
+                if len(commandline) != 0:
+                    command = commandline[:4].strip().lower()
+                    filepath = commandline[4:].strip()
+                    if command == 'get':
+                        status = file_sent(filepath, cli_sock)
+                    elif command == 'put':
+                        status = file_receive(filepath, cli_sock)
+                    elif command == 'list':
+                        status = listdirectory(cli_sock)
+                    else:
+                        cli_sock.send(b'Error: Invalid command')
+                        status = False
+                    # pass request details to report function
+                    request = commandline
+                    request_report(cli_addr, svr_port, request, status)
+                print('Client ' + cli_addr_str + ' disconnected.')
+                cli_sock.close()
+                break
+        except Exception as e:
             """
              If an error occurs or the client closes the connection,
              call close() on the connected socket
              to release the resources allocated to it by the OS.
             """
-            print('Connection Terminated.')
-            cli_sock.close()
+            print(e)
     # Close the server socket as well to release its resources back to the OS
     srv_sock.close()
     # Exit with a zero value, to indicate success
