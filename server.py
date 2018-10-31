@@ -4,7 +4,7 @@ from functions import *
 
 
 def main():
-    # ip, port and cwd details
+    # ip, port and directory details
     svr_addr = socket.gethostbyname(socket.gethostname())
     svr_port = sys.argv[1]
     svr_path = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +32,7 @@ def main():
             print("Client " + cli_addr_str + " connected.")
 
             while True:
+                status = False
                 commandline = cli_sock.recv(1024).decode()
                 if len(commandline) != 0:
                     command = commandline[:4].strip().lower()
@@ -45,7 +46,7 @@ def main():
                     else:
                         cli_sock.send(b'Error: Invalid command')
                         status = False
-                    # pass request details to report function
+                    # logging and reporting.
                     request = commandline
                     request_report(cli_addr, svr_port, request, status)
                 print('Client ' + cli_addr_str + ' disconnected.')
